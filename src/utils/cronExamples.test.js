@@ -24,6 +24,13 @@ describe('cronExamples', () => {
         expect(ex).toHaveProperty('category');
       });
     });
+
+    it('should return examples with unique ids', () => {
+      const examples = getAll();
+      const ids = examples.map((ex) => ex.id);
+      const uniqueIds = new Set(ids);
+      expect(uniqueIds.size).toBe(ids.length);
+    });
   });
 
   describe('getByCategory', () => {
@@ -74,6 +81,15 @@ describe('cronExamples', () => {
 
     it('should match the exported CATEGORIES constant', () => {
       expect(getCategories()).toEqual(CATEGORIES);
+    });
+
+    it('should only contain categories that have at least one example', () => {
+      const cats = getCategories();
+      cats.forEach((cat) => {
+        const results = getByCategory(cat);
+        expect(results).not.toBeNull();
+        expect(results.length).toBeGreaterThan(0);
+      });
     });
   });
 });
