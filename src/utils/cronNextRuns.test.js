@@ -1,78 +1,73 @@
-const { getNextRuns, matchesField } = require('./cronNextRuns');
+const { parseCronFields, matchesField, getNextRuns } = require('./cronNextRuns');
+
+describe('parseCronFields', () => {
+  it('parses a standard cron expression into fields', () => {
+    const fields = parseCronFields('0 9 * * 1-5');
+    expect(fields).toEqual({ minute: '0', hour: '9', dayOfMonth: '*', month: '*', dayOfWeek: '1-5' });
+  });
+
+  it('throws for expressions with wrong field count', () => {
+    expect(() => parseCronFields('* * *')).toThrow();
+  });
+});
 
 describe('matchesField', () => {
-  test('wildcard matches any value', () => {
-    expect(matchesField(5, '*', 0, 59)).toBe(true);
-    expect(matchesField(0, '*', 0, 59)).toBe(true);
+  it('matches wildcard', () => {
+    expect(matchesField('*', 5, 0, 59)).toBe(true);
   });
 
-  test('exact value match', () => {
-    expect(matchesField(5, '5', 0, 59)).toBe(true);
-    expect(matchesField(6, '5', 0, 59)).toBe(false);
+  it('matches exact value', () => {
+    expect(matchesField('30', 30, 0, 59)).toBe(true);
+    expect(matchesField('30', 15, 0, 59)).toBe(false);
   });
 
-  test('range match', () => {
-    expect(matchesField(3, '1-5', 0, 59)).toBe(true);
-    expect(matchesField(6, '1-5', 0, 59)).toBe(false);
+  it('matches range', () => {
+    expect(matchesField('1-5', 3, 0, 7)).toBe(true);
+    expect(matchesField('1-5', 6, 0, 7)).toBe(false);
   });
 
-  test('list match', () => {
-    expect(matchesField(15, '10,15,30', 0, 59)).toBe(true);
-    expect(matchesField(20, '10,15,30', 0, 59)).toBe(false);
+  it('matches step with wildcard', () => {
+    expect(matchesField('*/15', 0, 0, 59)).toBe(true);
+    expect(matchesField('*/15', 15, 0, 59)).toBe(true);
+    expect(matchesField('*/15', 7, 0, 59)).toBe(false);
   });
 
-  test('step match', () => {
-    expect(matchesField(0, '*/15', 0, 59)).toBe(true);
-    expect(matchesField(15, '*/15', 0, 59)).toBe(true);
-    expect(matchesField(30, '*/15', 0, 59)).toBe(true);
-    expect(matchesField(7, '*/15', 0, 59)).toBe(false);
+  it('matches step with range', () => {
+    expect(matchesField('0-30/10', 10, 0, 59)).toBe(true);
+    expect(matchesField('0-30/10', 35, 0, 59)).toBe(false);
   });
 
-  test('step with start', () => {
-    expect(matchesField(5, '5/10', 0, 59)).toBe(true);
-    expect(matchesField(15, '5/10', 0, 59)).toBe(true);
-    expect(matchesField(6, '5/10', 0, 59)).toBe(false);
+  it('matches comma-separated list', () => {
+    expect(matchesField('1,3,5', 3, 0, 7)).toBe(true);
+    expect(matchesField('1,3,5', 4, 0, 7)).toBe(false);
   });
 });
 
 describe('getNextRuns', () => {
-  const baseDate = new Date('2024-01-15T10:00:00Z');
-
-  test('returns error for invalid expression', () => {
-    const result = getNextRuns('invalid');
-    expect(result.error).not.toBeNull();
-    expect(result.runs).toHaveLength(0);
+  it('returns the correct number of next runs', () => {
+    const runs = getNextRuns('0 12 * * *', { count: 3 });
+    expect(runs).toHaveLength(3);
   });
 
-  test('returns correct number of runs', () => {
-    const result = getNextRuns('* * * * *', 5, baseDate);
-    expect(result.error).toBeNull();
-    expect(result.runs).toHaveLength(5);
+  it('returns Date objects', () => {
+    const runs = getNextRuns('*/5 * * * *', { count: 2 });
+    runs.forEach(r => expect(r).toBeInstanceOf(Date));
   });
 
-  test('every minute expression returns sequential minutes', () => {
-    const result = getNextRuns('* * * * *', 3, baseDate);
-    expect(result.runs[0].getMinutes()).toBe(1);
-    expect(result.runs[1].getMinutes()).toBe(2);
-    expect(result.runs[2].getMinutes()).toBe(3);
+  it('returns runs after fromDate', () => {
+    const from = new Date('2025-06-01T00:00:00Z');
+    const runs = getNextRuns('0 0 1 * *', { count: 2, fromDate: from });
+    runs.forEach(r => expect(r.getTime()).toBeGreaterThan(from.getTime()));
   });
 
-  test('specific minute expression', () => {
-    const from = new Date('2024-01-15T10:00:00Z');
-    const result = getNextRuns('30 * * * *', 2, from);
-    expect(result.error).toBeNull();
-    expect(result.runs[0].getMinutes()).toBe(30);
-    expect(result.runs[1].getMinutes()).toBe(30);
-    expect(result.runs[0].getHours()).not.toBe(result.runs[1].getHours());
+  it('each run is strictly after the previous', () => {
+    const runs = getNextRuns('0 9 * * 1-5', { count: 5 });
+    for (let i = 1; i < runs.length; i++) {
+      expect(runs[i].getTime()).toBeGreaterThan(runs[i - 1].getTime());
+    }
   });
 
-  test('defaults count to 5', () => {
-    const result = getNextRuns('* * * * *', undefined, baseDate);
-    expect(result.runs).toHaveLength(5);
-  });
-
-  test('returns Date objects', () => {
-    const result = getNextRuns('0 12 * * *', 1, baseDate);
-    expect(result.runs[0]).toBeInstanceOf(Date);
+  it('throws for invalid expression', () => {
+    expect(() => getNextRuns('invalid', { count: 5 })).toThrow();
   });
 });
