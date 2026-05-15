@@ -2,6 +2,20 @@ const express = require('express');
 const router = express.Router();
 const { validateExpression } = require('../../validator/expressionValidator');
 
+const FIELD_NAMES = ['minute', 'hour', 'dayOfMonth', 'month', 'dayOfWeek'];
+
+/**
+ * Parses a validated cron expression into a named fields object.
+ * @param {string} expression - A valid cron expression string
+ * @returns {object} An object mapping field names to their values
+ */
+function parseFields(expression) {
+  return expression.trim().split(/\s+/).reduce((acc, value, index) => {
+    acc[FIELD_NAMES[index]] = value;
+    return acc;
+  }, {});
+}
+
 /**
  * POST /api/validate
  * Validates a cron expression and returns validation result with field breakdown
@@ -29,16 +43,10 @@ router.post('/', (req, res) => {
     });
   }
 
-  const fieldNames = ['minute', 'hour', 'dayOfMonth', 'month', 'dayOfWeek'];
-  const fields = expression.trim().split(/\s+/).reduce((acc, value, index) => {
-    acc[fieldNames[index]] = value;
-    return acc;
-  }, {});
-
   return res.status(200).json({
     valid: true,
     expression: expression.trim(),
-    fields,
+    fields: parseFields(expression),
   });
 });
 
