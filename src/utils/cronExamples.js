@@ -91,4 +91,24 @@ function getCategories() {
   return CATEGORIES;
 }
 
-module.exports = { getAll, getByCategory, getById, getCategories, CATEGORIES };
+/**
+ * Searches examples by matching a query string against the description,
+ * naturalLanguage, and id fields (case-insensitive).
+ *
+ * @param {string} query - The search term to match against example fields.
+ * @returns {Array} An array of matching example objects, or an empty array if none match.
+ */
+function search(query) {
+  if (!query || typeof query !== 'string') {
+    return [];
+  }
+  const lower = query.toLowerCase();
+  return EXAMPLES.filter(
+    (ex) =>
+      ex.id.includes(lower) ||
+      ex.description.toLowerCase().includes(lower) ||
+      ex.naturalLanguage.toLowerCase().includes(lower)
+  );
+}
+
+module.exports = { getAll, getByCategory, getById, getCategories, search, CATEGORIES };
