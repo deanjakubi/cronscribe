@@ -22,7 +22,9 @@ app.use((req, res) => {
 // Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ error: 'Internal server error' });
+  const statusCode = err.statusCode || err.status || 500;
+  const message = statusCode < 500 ? err.message : 'Internal server error';
+  res.status(statusCode).json({ error: message });
 });
 
 const PORT = process.env.PORT || 3000;
